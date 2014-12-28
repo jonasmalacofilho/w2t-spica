@@ -2,6 +2,13 @@ import TeX;
 import format.simple.word.Document;
 using Lambda;
 
+enum Mark {
+    MBold;
+    MItalic;
+    MHeading(sublevel:Int); // 0, 1, 2, 3
+    // FIXME missing font & style
+}
+
 class Conversor {
 
     var doc:Document;
@@ -18,7 +25,8 @@ class Conversor {
             bold : null,
             italic : null,
             fonts : null,
-            style : null
+            style : null,
+            heading : null
         };
 
         function apply(p:Property)
@@ -46,24 +54,37 @@ class Conversor {
 
         // back to Array<Property>
         var ret = [];
+        // sigle marks
+        if (flat.heading != null) {
+            ret.push(MHeading(flat.heading));
+            return ret;
+        }
+        // multi-marks
         if (flat.bold)
-            ret.push(PBold(true));
+            ret.push(MBold);
         if (flat.italic)
-            ret.push(PItalic(true));
+            ret.push(MItalic);
         // FIXME the rest
         return ret;
     }
 
-    function applyProps(flat:Array<Property>, tex:TeX)
+    function applyProps(flat:Array<Mark>, tex:TeX)
     {
         if (flat.length == 0)
             return tex;
 
         switch (flat.shift()) {  // FIXME don't change flat in-place
-        case PBold(true):
+        case MBold:
             tex = TCommand("\\manuscriptbf", [tex]);
-        case PItalic(true):
+        case MItalic:
             tex = TCommand("\\manuscriptit", [tex]);
+        case MHeading(0):
+            tex = TCommand("\\chapter", [tex]);
+        case MHeading(sublevel) if (sublevel > 0):
+            var cname = "section";
+            for (i in 1...sublevel)
+                cname = "sub" + cname;
+            tex = TCommand('\\$cname', [tex]);
         case all:
             // FIXME
             trace('Skipping $all');
