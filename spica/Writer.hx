@@ -1,7 +1,7 @@
 import format.simple.word.Document;
 using Lambda;
 
-class Conversor {
+class Writer {
 
     var doc:Document;
 
@@ -48,9 +48,9 @@ class Conversor {
         return writeBody(doc.body);
     }
 
-    public static function convert(doc:Document):String
+    public static function write(doc:Document):String
     {
-        var r = new Conversor(doc);
+        var r = new Writer(doc);
         return r.writeDoc();
     }
 
