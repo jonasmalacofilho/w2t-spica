@@ -1,57 +1,61 @@
-import format.simple.word.Document;
 using Lambda;
 
 class Writer {
 
-    var doc:Document;
+    var buf : StringBuf;
 
-    public function new(doc)
+    function new()
     {
-        this.doc = doc;
+        reset();
     }
 
-    function getFootnote(id)
+    function reset()
     {
-        // FIXME
-        return null;
+        buf = new StringBuf();
     }
 
-    function writeFootnote(fnote)
+    function toString()
     {
-        // FIXME
-        return "";
+        return buf.toString();
     }
 
-    function writeRun(run)
+    function writeParam(tex:TeX)
     {
-        return switch (run.content) {
-        case CText(text): text;
-        case CFootnoteRef(id): '\\footnote{Footnote: $id}';  // FIXME
+        switch (tex) {
+        case TOptional(one):
+            buf.add("[");
+            writeTeX(one);
+            buf.add("}");
+        case _:
+            buf.add("{");
+            writeTeX(tex);
+            buf.add("}");
         }
     }
 
-    function writePar(par)
+    function writeTeX(tex:TeX)
     {
-        return par.runs.map(writeRun).join("");
+        switch (tex) {
+        case TFile(several), TSome(several): several.iter(writeTeX);
+        case TPar(several):
+            several.iter(writeTeX);
+            buf.add("\n\n");
+        case TRaw(raw): buf.add(raw);
+        case TText(text): buf.add(text);  // FIXME must escape!!
+        case TCommand(cmd, params):
+            buf.add(cmd);
+            params.iter(writeParam);
+        case TOptional(one):
+            throw 'Assert: $tex';
+        case all: // FIXME
+        }
     }
 
-    function writeBody(body)
+    public static function write(tex:TeX):String
     {
-        function f(p)
-            return p.length > 0;
-
-        return body.pars.map(writePar).filter(f).join("\n\n");
-    }
-
-    public function writeDoc()
-    {
-        return writeBody(doc.body);
-    }
-
-    public static function write(doc:Document):String
-    {
-        var r = new Writer(doc);
-        return r.writeDoc();
+        var r = new Writer();
+        r.writeTeX(tex);
+        return r.toString();
     }
 
 }

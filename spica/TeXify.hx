@@ -1,3 +1,4 @@
+import Conversor.convert;
 import Writer.write;
 import Sys.println;
 import format.simple.word.DocxReader.readDocx;
@@ -14,8 +15,9 @@ class TeXify {
     {
         var doc = readDocx(Sys.stdin());
         var trans = transform(doc);
-        var tex = write(trans);
-        println(tex);
+        var tex = convert(trans);
+        var text = write(tex);
+        println(text);
     }
 
 }
