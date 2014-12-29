@@ -1,3 +1,5 @@
+package format.simple.tex;
+
 using Lambda;
 
 class Writer {

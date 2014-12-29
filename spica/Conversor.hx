@@ -1,25 +1,20 @@
-import TeX;
-import format.simple.word.Document;
-using Lambda;
+package spica;
 
-enum Mark {
-    MBold;
-    MItalic;
-    MHeading(sublevel:Int); // 0, 1, 2, 3
-    // FIXME the rest
-}
+import format.simple.tex.TeX;
+import format.simple.word.Document;
+import spica.AuxTypes;
+using Lambda;
 
 class Conversor {
 
     var doc:Document;
-    var _parProps:Array<Property>;
 
     public function new(doc)
     {
         this.doc = doc;
     }
 
-    function flattenProps(par:Array<Property>, run:Array<Property>)
+    function flattenProps(par:Array<Property>, run:Array<Property>):FlatProps
     {
         var flat = {
             bold : null,
@@ -29,48 +24,60 @@ class Conversor {
             heading : null
         };
 
-        function apply(p:Property)
+        function _apply(weak:Bool, p:Property)
         {
             switch (p) {
-            case PBold(bold):
+            case PBold(bold) if (!weak || flat.bold == null):
                 flat.bold = bold;
-            case PItalic(italic):
+            case PItalic(italic) if (!weak || flat.italic == null):
                 flat.italic = italic;
             case PStyleRef(style):
                 flat.style = doc.styles.styles.find(function (x) return x.name == style);
             case all:
                 // FIXME
-                trace('Skipping $all');
+                // trace('Skipping $all');
             }
         }
+        var weakApply = _apply.bind(true);
+        var apply = _apply.bind(false);
 
         // docDefaults
         doc.styles.docDefaults.parDefault.iter(apply);
         doc.styles.docDefaults.runDefault.iter(apply);
 
-        // TODO styles
-        if (flat.style != null) {
-            flat.style.props.iter(apply);
-        }
-        
         // local props
         par.iter(apply);
         run.iter(apply);
 
-        // back to Array<Property>
-        var ret = [];
-        // sigle marks
+        // styles: keep whatever has already been set
+        // FIXME: this only works on very simple style definitions
+        if (flat.style != null) {
+            flat.style.props.iter(weakApply);
+        }
+
+        return flat;
+    }
+
+    // FIXME rename
+    function deflateProps(flat:FlatProps, titlenize:Bool):Array<Mark>
+    {
+        if (titlenize) {
+            if (flat.bold)
+                flat.heading = flat.italic ? 1 : 0;  // FIXME copy first
+        }
+
+        // single marks
         if (flat.heading != null) {
-            ret.push(MHeading(flat.heading));
-            return ret;
+            return [MHeading(flat.heading)];
         }
         // multi-marks
+        var marks = [];
         if (flat.bold)
-            ret.push(MBold);
+            marks.push(MBold);
         if (flat.italic)
-            ret.push(MItalic);
+            marks.push(MItalic);
         // FIXME the rest
-        return ret;
+        return marks;
     }
 
     function applyProps(flat:Array<Mark>, tex:TeX)
@@ -110,21 +117,56 @@ class Conversor {
         return "";
     }
 
-    function convertRun(run:Run)
+    function preProcessRun(parProps, run:Run):TempRun
     {
         return switch (run.content) {
         case CText(text):
-            var props = flattenProps(_parProps, run.props);
-            applyProps(props, TText(text));
+            var props = flattenProps(parProps, run.props);
+            { text : text, props : props, refs : [] };
         case CFootnoteRef(id):
-            TCommand("\\footnote", [TText('Footnote: $id')]);  // FIXME
+            { text : "", props : cast {}, refs : [id] };
         }
+    }
+    
+    function unifiableProps(a:FlatProps, b:FlatProps):Bool {
+        return a.bold == b.bold && a.italic == b.italic;  // FIXME lang
+    }
+
+    function unifyRuns(runs:Array<TempRun>):Array<TempRun>
+    {
+        var u = [];  // unfied runs
+        var l:TempRun = null;  // last consumed run
+
+        for (r in Reflect.copy(runs)) {
+            // note: unification only possible if the previous run has no references
+            if (l == null || l.refs.length > 0 || !unifiableProps(l.props, r.props)) {
+                u.push(r);
+                l = r;
+            } else {
+                l.text += r.text;
+                l.refs = r.refs;
+            }
+        }
+
+        return u;
+    }
+
+    function convertRun(runCnt, run:TempRun)
+    {
+        var props = deflateProps(run.props, runCnt == 1);
+        var refs = run.refs.map(function (id) return TCommand("\\foonote", [TText('Footnote: $id')]));  // FIXME
+
+        return if (refs.length > 0)
+            applyProps(props, TSome([TText(run.text)].concat(refs)));
+        else
+            applyProps(props, TText(run.text));
     }
 
     function convertPar(par:Paragraph)
     {
-        _parProps = par.props;
-        return TPar(par.runs.map(convertRun));
+        var pre = par.runs.map(preProcessRun.bind(par.props));
+        var unified = unifyRuns(pre);
+        return TPar(unified.map(convertRun.bind(unified.length)));
     }
 
     function convertBody(body:Body)

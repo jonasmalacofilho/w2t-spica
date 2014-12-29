@@ -1,3 +1,5 @@
+package format.simple.tex;
+
 enum TeX {
     // commands
     TOptional(tex:TeX);  // optional argument/parameter

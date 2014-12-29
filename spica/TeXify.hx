@@ -1,7 +1,9 @@
-import Conversor.convert;
-import Writer.write;
+package spica;
+
 import Sys.println;
+import format.simple.tex.Writer.write;
 import format.simple.word.DocxReader.readDocx;
+import spica.Conversor.convert;
 
 class TeXify {
 
@@ -13,10 +15,16 @@ class TeXify {
 
     public static function main()
     {
+        haxe.Log.trace = function (m, ?p)
+            Sys.stderr().writeString('${p.fileName}:${p.lineNumber}: $m\n');
+
         var doc = readDocx(Sys.stdin());
-        var trans = transform(doc);
-        var tex = convert(trans);
+        // trace(doc);
+
+        var tex = convert(doc);
+
         var text = write(tex);
+
         println(text);
     }
 
