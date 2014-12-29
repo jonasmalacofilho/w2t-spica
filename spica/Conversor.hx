@@ -6,7 +6,7 @@ enum Mark {
     MBold;
     MItalic;
     MHeading(sublevel:Int); // 0, 1, 2, 3
-    // FIXME missing font & style
+    // FIXME the rest
 }
 
 class Conversor {
@@ -36,6 +36,8 @@ class Conversor {
                 flat.bold = bold;
             case PItalic(italic):
                 flat.italic = italic;
+            case PStyleRef(style):
+                flat.style = doc.styles.styles.find(function (x) return x.name == style);
             case all:
                 // FIXME
                 trace('Skipping $all');
@@ -47,6 +49,9 @@ class Conversor {
         doc.styles.docDefaults.runDefault.iter(apply);
 
         // TODO styles
+        if (flat.style != null) {
+            flat.style.props.iter(apply);
+        }
         
         // local props
         par.iter(apply);
@@ -80,7 +85,7 @@ class Conversor {
             tex = TCommand("\\manuscriptit", [tex]);
         case MHeading(0):
             tex = TCommand("\\chapter", [tex]);
-        case MHeading(sublevel) if (sublevel > 0):
+        case MHeading(sublevel):
             var cname = "section";
             for (i in 1...sublevel)
                 cname = "sub" + cname;

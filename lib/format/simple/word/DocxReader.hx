@@ -5,6 +5,7 @@ import haxe.zip.Reader.readZip;
 import haxe.zip.Reader.unzip;
 using StringTools;
 using Std;
+using Lambda;
 
 class DocxReader {
 
@@ -80,6 +81,29 @@ class DocxReader {
         return ret;
     }
 
+    function readStyle(styleNode:ExtFastXml):Null<Style>
+    {
+        if (!~/paragraph|character/.match(styleNode.att.type))
+            return null;
+
+        if (!styleNode.hasNode.pPr && !styleNode.hasNode.rPr)
+            return null;
+
+        var ret:Style = {
+            name : styleNode.att.styleId,
+            type : styleNode.att.type,
+            basedOn : styleNode.hasNode.basedOn ? styleNode.node.basedOn.att.val : null,
+            props : []
+        };
+
+        if (styleNode.hasNode.pPr)
+            ret.props = ret.props.concat(readParProps(styleNode.node.pPr));
+        if (styleNode.hasNode.rPr)
+            ret.props = ret.props.concat(readRunProps(styleNode.node.rPr));
+
+        return ret;
+    }
+
     function readDocDefaults(stylesNode:ExtFastXml)
     {
         if (!stylesNode.hasNode.docDefaults)
@@ -137,7 +161,13 @@ class DocxReader {
     function readStyles()
     {
         var stylesNode = openXml("styles.xml").node.styles;
-        var ret = { docDefaults : readDocDefaults(stylesNode), styles : [] };
+        var ret = {
+            docDefaults : null,
+            styles : null
+        };
+        ret.docDefaults = readDocDefaults(stylesNode);
+        var styles = stylesNode.nodes.style.map(readStyle);
+        ret.styles = styles.filter(function (x) return x != null).array();
         return ret;
     }
 

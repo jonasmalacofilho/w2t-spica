@@ -10,8 +10,16 @@ enum Property {
     PStyleRef(name:String);
 }
 
+@:enum abstract StyleType(String) from String {
+    var TableStyle = "table";
+    var CharacterStyle = "character";
+    var ParagraphStyle = "paragraph";
+    var NumberingStyle = "numbering";
+}
+
 typedef Style = {
     name : String,
+    type : StyleType,
     basedOn : Null<String>,
     props : Array<Property>,
 }
